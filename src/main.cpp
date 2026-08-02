@@ -1,14 +1,17 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
+#include <Geode/modify/PauseLayer.hpp>
+#include <Geode/ui/Popup.hpp>
 
 using namespace geode::prelude;
 
 // ============================================================
-// PRACTICE TOOLS - Mod Geode
+// SuLMod - Mod Geode
 // Fitur:
 //  1. Tampilkan hitbox player secara real-time (kotak merah/custom)
-//  2. Speedhack: ubah kecepatan gameplay via multiplier (setting)
+//  2. Speedhack: ubah kecepatan gameplay via multiplier
+//  3. Menu UI in-game (tombol di pause menu) buat toggle & atur speed
 // ============================================================
 
 // Node custom untuk menggambar kotak hitbox di atas layar
@@ -26,20 +29,129 @@ public:
 
     // Gambar ulang kotak hitbox berdasarkan rect object
     void drawHitbox(CCRect const& rect, ccColor4F const& color) {
-        // Susun 4 titik sudut rect (searah jarum jam)
         CCPoint pts[4] = {
             {rect.getMinX(), rect.getMinY()},
             {rect.getMaxX(), rect.getMinY()},
             {rect.getMaxX(), rect.getMaxY()},
             {rect.getMinX(), rect.getMaxY()}
         };
-        // drawPolygon dengan isi transparan, hanya garis tepi yang terlihat
         this->drawPolygon(pts, 4, {0, 0, 0, 0}, 1.5f, color);
     }
 };
 
+// ============================================================
+// POPUP MENU: SuLMod
+// Popup kecil berisi toggle hitbox + tombol -/+ buat atur speed
+// ============================================================
+class SuLMenuPopup : public geode::Popup<> {
+protected:
+    CCLabelBMFont* m_speedLabel = nullptr;
+    CCMenuItemToggler* m_hitboxToggle = nullptr;
+
+    bool setup() override {
+        this->setTitle("SuLMod");
+
+        auto winSize = m_mainLayer->getContentSize();
+        auto menu = CCMenu::create();
+        menu->setPosition({0, 0});
+        m_mainLayer->addChild(menu);
+
+        // --- Toggle Hitbox ---
+        auto hitboxLabel = CCLabelBMFont::create("Tampilkan Hitbox", "bigFont.fnt");
+        hitboxLabel->setScale(0.4f);
+        hitboxLabel->setAnchorPoint({0, 0.5f});
+        hitboxLabel->setPosition({winSize.width / 2 - 85, winSize.height / 2 + 20});
+        m_mainLayer->addChild(hitboxLabel);
+
+        bool hitboxOn = Mod::get()->getSettingValue<bool>("show-hitboxes");
+        auto offSpr = CCSprite::createWithSpriteFrameName("GJ_checkOff_001.png");
+        auto onSpr = CCSprite::createWithSpriteFrameName("GJ_checkOn_001.png");
+        m_hitboxToggle = CCMenuItemToggler::create(
+            offSpr, onSpr, this, menu_selector(SuLMenuPopup::onToggleHitbox)
+        );
+        m_hitboxToggle->toggle(hitboxOn);
+        m_hitboxToggle->setPosition({winSize.width / 2 + 60, winSize.height / 2 + 20});
+        menu->addChild(m_hitboxToggle);
+
+        // --- Atur Speed Multiplier ---
+        auto speedTitle = CCLabelBMFont::create("Kecepatan", "bigFont.fnt");
+        speedTitle->setScale(0.4f);
+        speedTitle->setAnchorPoint({0, 0.5f});
+        speedTitle->setPosition({winSize.width / 2 - 85, winSize.height / 2 - 20});
+        m_mainLayer->addChild(speedTitle);
+
+        // Tombol kurangi speed
+        auto minusSpr = ButtonSprite::create("-");
+        minusSpr->setScale(0.7f);
+        auto minusBtn = CCMenuItemSpriteExtra::create(
+            minusSpr, this, menu_selector(SuLMenuPopup::onSpeedDown)
+        );
+        minusBtn->setPosition({winSize.width / 2 + 30, winSize.height / 2 - 20});
+        menu->addChild(minusBtn);
+
+        // Label angka speed saat ini
+        double speedVal = Mod::get()->getSettingValue<double>("speed-multiplier");
+        m_speedLabel = CCLabelBMFont::create(this->speedText(speedVal).c_str(), "bigFont.fnt");
+        m_speedLabel->setScale(0.5f);
+        m_speedLabel->setPosition({winSize.width / 2 + 60, winSize.height / 2 - 20});
+        m_mainLayer->addChild(m_speedLabel);
+
+        // Tombol tambah speed
+        auto plusSpr = ButtonSprite::create("+");
+        plusSpr->setScale(0.7f);
+        auto plusBtn = CCMenuItemSpriteExtra::create(
+            plusSpr, this, menu_selector(SuLMenuPopup::onSpeedUp)
+        );
+        plusBtn->setPosition({winSize.width / 2 + 90, winSize.height / 2 - 20});
+        menu->addChild(plusBtn);
+
+        return true;
+    }
+
+    // Format angka speed jadi teks 1 desimal, misal "1.0x"
+    std::string speedText(double val) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1fx", val);
+        return std::string(buf);
+    }
+
+    void onToggleHitbox(CCObject* sender) {
+        auto toggler = static_cast<CCMenuItemToggler*>(sender);
+        // isOn() mengembalikan state SEBELUM diklik, jadi kita balik
+        bool newState = !toggler->isOn();
+        Mod::get()->setSettingValue<bool>("show-hitboxes", newState);
+    }
+
+    void onSpeedDown(CCObject*) {
+        double val = Mod::get()->getSettingValue<double>("speed-multiplier");
+        val = std::max(0.1, val - 0.1);
+        Mod::get()->setSettingValue<double>("speed-multiplier", val);
+        m_speedLabel->setString(this->speedText(val).c_str());
+    }
+
+    void onSpeedUp(CCObject*) {
+        double val = Mod::get()->getSettingValue<double>("speed-multiplier");
+        val = std::min(3.0, val + 0.1);
+        Mod::get()->setSettingValue<double>("speed-multiplier", val);
+        m_speedLabel->setString(this->speedText(val).c_str());
+    }
+
+public:
+    static SuLMenuPopup* create() {
+        auto ret = new SuLMenuPopup();
+        if (ret->initAnchored(240.f, 160.f)) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
+};
+
+// ============================================================
 // Hook ke PlayLayer supaya bisa menggambar hitbox tiap frame
 // dan menerapkan speedhack pada update loop
+// ============================================================
 class $modify(PTPlayLayer, PlayLayer) {
     struct Fields {
         HitboxDrawNode* hitboxNode = nullptr;
@@ -50,7 +162,6 @@ class $modify(PTPlayLayer, PlayLayer) {
             return false;
         }
 
-        // Siapkan node untuk gambar hitbox, taruh di layer paling atas
         auto node = HitboxDrawNode::create();
         node->setID("pt-hitbox-node"_spr);
         node->setZOrder(1000);
@@ -61,15 +172,9 @@ class $modify(PTPlayLayer, PlayLayer) {
     }
 
     void update(float dt) {
-        // Ambil setting kelipatan kecepatan dari mod.json
         float multiplier = Mod::get()->getSettingValue<double>("speed-multiplier");
-
-        // Terapkan speedhack: kalikan delta time sebelum diteruskan ke game asli.
-        // multiplier < 1 = slow motion (bagus buat latihan bagian susah)
-        // multiplier > 1 = mempercepat gameplay
         PlayLayer::update(dt * multiplier);
 
-        // Update tampilan hitbox tiap frame kalau fiturnya aktif
         bool showHitbox = Mod::get()->getSettingValue<bool>("show-hitboxes");
         if (m_fields->hitboxNode) {
             m_fields->hitboxNode->clear();
@@ -83,10 +188,8 @@ class $modify(PTPlayLayer, PlayLayer) {
                     1.f
                 };
 
-                // Hitbox player 1
                 m_fields->hitboxNode->drawHitbox(m_player1->getObjectRect(), color);
 
-                // Kalau dual mode aktif, gambar juga hitbox player 2
                 if (m_player2 && this->m_gameState.m_isDualMode) {
                     m_fields->hitboxNode->drawHitbox(m_player2->getObjectRect(), color);
                 }
@@ -94,11 +197,59 @@ class $modify(PTPlayLayer, PlayLayer) {
         }
     }
 
-    // Reset speed & hitbox tampilan tiap kali level di-restart
     void resetLevel() {
         PlayLayer::resetLevel();
         if (m_fields->hitboxNode) {
             m_fields->hitboxNode->clear();
         }
+    }
+};
+
+// ============================================================
+// Hook ke PauseLayer buat nambahin tombol "SuLMod" di menu pause
+// ============================================================
+class $modify(PTPauseLayer, PauseLayer) {
+    void customSetup() {
+        PauseLayer::customSetup();
+
+        // Bikin tombol kecil pakai ikon gear/tools bawaan game
+        auto spr = CCSprite::createWithSpriteFrameName("geode.loader/settings.png");
+        if (!spr) {
+            // fallback kalau sprite frame gak ketemu, pakai ButtonSprite teks
+            spr = nullptr;
+        }
+
+        CCMenuItemSpriteExtra* btn;
+        if (spr) {
+            spr->setScale(0.9f);
+            btn = CCMenuItemSpriteExtra::create(
+                spr, this, menu_selector(PTPauseLayer::onSuLMod)
+            );
+        } else {
+            auto bs = ButtonSprite::create("SuL");
+            bs->setScale(0.6f);
+            btn = CCMenuItemSpriteExtra::create(
+                bs, this, menu_selector(PTPauseLayer::onSuLMod)
+            );
+        }
+
+        // Cari menu tombol pause yang sudah ada, taruh di pojok
+        if (auto menu = this->getChildByID("left-button-menu")) {
+            btn->setID("sulmod-open-btn"_spr);
+            menu->addChild(btn);
+            static_cast<CCMenu*>(menu)->updateLayout();
+        } else {
+            // fallback: taruh manual kalau ID menu gak ketemu
+            auto winSize = CCDirector::sharedDirector()->getWinSize();
+            btn->setPosition({40, winSize.height - 40});
+            auto menu = CCMenu::create();
+            menu->addChild(btn);
+            menu->setPosition({0, 0});
+            this->addChild(menu);
+        }
+    }
+
+    void onSuLMod(CCObject*) {
+        SuLMenuPopup::create()->show();
     }
 };
