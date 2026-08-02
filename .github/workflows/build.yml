@@ -1,7 +1,5 @@
 name: Build SuLMod
 
-# Jalan otomatis tiap kali ada push ke branch main,
-# atau bisa dipicu manual lewat tab Actions (tombol "Run workflow")
 on:
   push:
     branches: [main]
@@ -9,7 +7,6 @@ on:
 
 jobs:
   build:
-    # Build untuk Android (cocok buat dipasang di Geode versi HP)
     runs-on: ubuntu-latest
     steps:
       - name: Ambil kode dari repo
@@ -18,12 +15,11 @@ jobs:
       - name: Build mod pakai Geode SDK
         uses: geode-sdk/build-geode-mod@main
         with:
-          platform: android64
-          # Kalau butuh target android32 juga, tambahin job terpisah dengan platform: android32
+          sdk: 'latest'
+          target: Android64
 
       - name: Upload hasil .geode sebagai artifact
         uses: actions/upload-artifact@v4
         with:
           name: SuLMod-android
           path: build/*.geode
-
