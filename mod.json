@@ -1,0 +1,34 @@
+{
+    "geode": "4.0.0",
+    "gd": {
+        "win": "2.2074",
+        "android": "2.2074"
+    },
+    "version": "v1.0.0",
+    "id": "com.ris.sulmod",
+    "name": "SuLMod",
+    "developer": "Ris",
+    "description": "Kumpulan tools latihan: tampilkan hitbox pemain dan kecepatan game (speedhack) yang bisa diatur.",
+    "settings": {
+        "show-hitboxes": {
+            "name": "Tampilkan Hitbox",
+            "description": "Menampilkan kotak hitbox player secara real-time saat bermain.",
+            "type": "bool",
+            "default": false
+        },
+        "speed-multiplier": {
+            "name": "Kelipatan Kecepatan",
+            "description": "1.0 = normal. Lebih kecil = lebih lambat (mudah untuk latihan), lebih besar = lebih cepat.",
+            "type": "float",
+            "default": 1.0,
+            "min": 0.1,
+            "max": 3.0
+        },
+        "hitbox-color": {
+            "name": "Warna Hitbox",
+            "description": "Warna garis kotak hitbox.",
+            "type": "rgb",
+            "default": [255, 0, 0]
+        }
+    }
+}
