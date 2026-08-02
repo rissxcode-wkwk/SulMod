@@ -1,8 +1,8 @@
 {
-    "geode": "4.0.0",
+    "geode": "v4.0.0",
     "gd": {
-        "win": "2.2074",
-        "android": "2.2074"
+        "win": "2.208",
+        "android": "2.208"
     },
     "version": "v1.0.0",
     "id": "com.ris.sulmod",
